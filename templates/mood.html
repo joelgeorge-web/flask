@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Feed with Ambient Lighting</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        /* Center the camera feed in the page */
+        .camera-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            /* Full viewport height */
+            background-color: #111;
+            /* Dark background for contrast */
+        }
+
+        /* Style the camera feed with ambient lighting */
+        .camera-feed {
+            width: 640px;
+            /* Camera feed width */
+            height: 480px;
+            /* Camera feed height */
+            /* Ambient lighting effect */
+            border: 5px solid white;
+            /* Optional border */
+        }
+
+        .ambient {
+            box-shadow: 0 0 210px 92px rgba(255, 255, 255, 0.5);
+        }
+
+        #camera-img {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="camera-container">
+        <!-- Video element for the camera feed -->
+        <div id="ambient" class="camera-feed ambient">
+            <video id="camera" class="camera-feed" autoplay playsinline></video>
+            <img id="camera-img" class="camera-feed" />
+            <audio id="bgMusic"></audio>
+        </div>
+
+    </div>
+
+    <script>
+        let isBusy = false
+        const ambient_lights = ['green', 'pink', 'blue', 'red']
+        const musics = ['music.mp3']
+        async function switchToImage(blob, isSad) {
+            if (!isBusy) {
+                isBusy = true
+                const imageElement = document.getElementById("camera-img");
+                const videoElement = document.getElementById("camera");
+                const ambientElement = document.getElementById("ambient");
+                const audioElement = document.getElementById("bgMusic");
+
+                // Display the processed image
+                // const objectUrl = URL.createObjectURL(blob);
+                const objectUrl = `data:image/jpeg;base64,${blob}`;
+                imageElement.src = objectUrl;
+                imageElement.style.display = "block"; // Show the image
+                videoElement.style.display = "none"; // Hide the video
+
+                if (isSad) {
+                    const rand = Math.floor(Math.random() * ambient_lights.length)
+                    const rand_music = Math.floor(Math.random() * musics.length)
+                    ambientElement.style.boxShadow = `0 0 210px 92px ${ambient_lights[rand]}`
+                    audioElement.src = '/static/audio/'+musics[rand_music]
+                    audioElement.play()
+                }
+
+                // Wait for 2 seconds, then switch back to the video feed
+                setTimeout(() => {
+                    imageElement.style.display = "none"; // Hide the image
+                    videoElement.style.display = "block"; // Show the video
+                    URL.revokeObjectURL(objectUrl); // Cleanup the Object URL
+                    audioElement.src = ''
+                    isBusy = false
+                    ambientElement.style.boxShadow = `0 0 210px 92px white`
+                }, isSad ? 10000 : 2000); // 2-second delay
+            }
+        }
+
+        async function startCamera() {
+            try {
+                // Get the user's camera feed
+                const video = document.getElementById('camera');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream; // Set the video source to the camera feed4 const captureInterval = 2000; // Time interval to capture and send frames (ms)
+                const captureInterval = 2500;
+                setInterval(async () => {
+                    // Capture the current frame from the video
+                    if (isBusy) return
+                    const canvas = document.createElement("canvas");
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Convert the frame to a Blob
+                    const blob = await new Promise((resolve) =>
+                        canvas.toBlob(resolve, "image/jpeg")
+                    );
+
+                    const formData = new FormData();
+                    formData.append("file", blob);
+
+                    const response = await fetch('/detect_emotion', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Error processing image: ${response.statusText}`);
+                    }
+                    const data = await response.json()
+                    // const imageUrl = URL.createObjectURL(imageBlob);  // Create temporary URL
+
+                    // Use imageUrl to display the processed image in an HTML img element
+                    // const processedImage = document.getElementById('camera-img');
+                    // const video = document.getElementById("camera");
+
+                    // processedImage.src = imageUrl;
+                    console.log(data);
+                    switchToImage(data?.image_base64, data?.isSad)
+
+                }, captureInterval); // Capture and send every 2 seconds
+
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+            }
+
+        }
+
+        // Start the camera feed when the page loads
+        window.addEventListener('load', startCamera);
+        console.log('sldmsd');
+    </script>
+</body>
+
+</html>
