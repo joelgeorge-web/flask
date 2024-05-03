@@ -11,6 +11,10 @@ from werkzeug.utils import secure_filename
 from pygame import mixer
 from flask_cors import CORS
 import json, base64
+import pygame
+pygame.init()
+pygame.mixer.init()
+
 # Initialize the Flask app
 app = Flask(__name__)
 CORS(app)
@@ -66,16 +70,13 @@ def detect_emotion():
         cv2.putText(frame, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)  # Add text
 
         # Music handling if sad emotion detected
-        # if label == 'sad':
-        #     start_time = time.time()
-        #     music_playing = True
-        #     mixer.music.load(f'audio/{random.randrange(1, 13)}.mp3')
-        #     mixer.music.play()
+        if label == 'neutral':
+            start_time = time.time()
+            music_playing = True
+            mixer.music.load(f'audio/{random.randrange(1, 13)}.mp3')
+            mixer.music.play()
 
-    # Encode and send back the annotated frame
-    # _, buffer = cv2.imencode('.jpg', frame)
-    # response = BytesIO(buffer.tobytes())
-    # response.seek(0)
+
     
     ret, buffer = cv2.imencode('.jpg', frame)
     image_blob = io.BytesIO(buffer.tobytes())
